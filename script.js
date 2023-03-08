@@ -1,6 +1,7 @@
-const apikey = '1bfefb6e-93ce-4a5d-94f4-0d9a36b1aca5';
-const apihost = 'https://todo-api.coderslab.pl';
+const apikey = '1bfefb6e-93ce-4a5d-94f4-0d9a36b1aca5'; //key needed to authorise to our API
+const apihost = 'https://todo-api.coderslab.pl'; //source of backend
 
+//function to show all tasks
 function apiListTasks() {
     return fetch(
         apihost + '/api/tasks',
@@ -17,6 +18,7 @@ function apiListTasks() {
     )
 }
 
+//function needed for apiListTasks to catch all elements
 function renderTask(taskId, title, description, status) {
     const section = document.createElement('section');
     section.className = 'card mt-5 shadow-sm';
@@ -53,14 +55,31 @@ function renderTask(taskId, title, description, status) {
     deleteButton.innerText = 'Delete';
     headerRightDiv.appendChild(deleteButton);
 
+    //action after click delete button
+    deleteButton.addEventListener('click', function() {
+        apiDeleteTask(taskId).then(
+            function() {
+                section.parentElement.removeChild(section);
+            }
+        );
+    });
+
     const ul = document.createElement('ul');
     ul.className = 'list-group list-group-flush';
     section.appendChild(ul);
 
-    //toDo
-    //lista
+    //catch operations list of task from declared id of task
+    apiListOperationsForTask(taskId).then(
+        function(response) {
+            response.data.forEach(
+                function(operation) {
+                    renderOperation(ul, status, operation.id, operation.description, operation.timeSpent);
+                }
+            );
+        }
+    );
 
-
+    //works only if task is open
     if(status === 'open') {
         const divCardBody = document.createElement('div');
         divCardBody.className = 'card-body js-task-open-only';
@@ -89,19 +108,12 @@ function renderTask(taskId, title, description, status) {
         addButton.innerText = 'Add';
         divInputGroupAppend.appendChild(addButton);
     }
-
-
-
-
-    const button15m = document.createElement('button');
-    button15m.className = 'btn btn-outline-success btn-sm mr-2';
-    button15m.innerText = '+15m';
-
 }
 
+//needed to show operations of declared task by id
 function apiListOperationsForTask(taskId) {
     return fetch(
-        apihost + '/api/tasks' + taskId + '/operations',
+        apihost + '/api/tasks/' + taskId + '/operations',
         {
             headers: {Authorization: apikey}
         }
@@ -115,19 +127,118 @@ function apiListOperationsForTask(taskId) {
     )
 }
 
-function renderOperation() {
+//function to catch all operations for tasks and show it in proper way (used by apiListOperationsForTask)
+function renderOperation(ul, status, operationId, operationDescription, operationTimeSpent) {
+    const li = document.createElement('li');
+    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+    ul.appendChild(li);
 
+    const descriptionDiv = document.createElement('div');
+    descriptionDiv.innerText = operationDescription;
+    li.appendChild(descriptionDiv);
+
+    const time = document.createElement('span');
+    time.className = 'badge badge-success badge-pill ml-2';
+    time.innerText = formatTime(operationTimeSpent);
+    descriptionDiv.appendChild(time);
+
+    if(status === open) {
+        const taskOpenDiv = document.createElement('div');
+        taskOpenDiv.className = 'js-task-open-only';
+        li.appendChild(taskOpenDiv);
+
+        const add15mButton = document.createElement('button');
+        add15mButton.className = 'btn btn-outline-success btn-sm mr-2';
+        add15mButton.innerText = '+15m';
+        taskOpenDiv.appendChild(add15mButton);
+
+       //toDo
+        //update
+
+        const add1hButton = document.createElement('button');
+        add1hButton.className = 'btn btn-outline-success btn-sm mr-2';
+        add1hButton.innerText = '+1h';
+        taskOpenDiv.appendChild(add1hButton);
+        //toDO
+        //update
+
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'btn btn-outline-danger btn-sm';
+        deleteButton.innerText = 'Delete';
+        taskOpenDiv.appendChild(deleteButton);
+
+    }
+}
+//function used in function renderOperation to format date to good visible format:
+function formatTime(time) {
+    const hours = Math.floor(time / 60);
+    const minutes = time % 60;
+    if(hours > 0) {
+        return hours + 'h ' + minutes + 'm';
+    } else {
+        return minutes + 'm';
+    }
 }
 
+//function to Create new task:
+function apiCreateTask(title, description) {
+    return fetch(
+        apihost + '/api/tasks',
+        {
+            headers: { Authorization: apikey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: title, description: description, status: 'open' }),
+            method: 'POST'
+        }
+    ).then(
+        function(resp) {
+            if(!resp.ok) {
+                alert('There is some error. Please open devtools and bookmark Network and find solution.');
+            }
+            return resp.json();
+        }
+    )
+}
+
+//delete task
+function apiDeleteTask(taskId) {
+    return fetch(
+        apihost + '/api/tasks/' + taskId,
+        {
+            headers: {Authorization: apikey},
+            method: 'DELETE'
+        }
+    ).then(
+        function (resp) {
+            if (!resp.ok) {
+                alert('There is some error. Please open devtools and bookmark Network and find solution.');
+            }
+            return resp.json();
+        }
+    )
+}
+
+//event which works after page loaded:
 document.addEventListener('DOMContentLoaded', function() {
+
+    //load all tasks:
     apiListTasks().then(
         function(response) {
-
             //open function renderTask for all tasks from backend
             response.data.forEach(
                 function(task) { renderTask(task.id, task.title, task.description, task.status); }
             );
-
         }
     );
+
+    //create new task:
+    document.querySelector('.js-task-adding-form').addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        apiCreateTask(event.target.elements.title.value, event.target.elements.description.value).then(
+            function(response) { renderTask(response.data.id, response.data.title, response.data.description, response.data.status); }
+        )
+    });
+
+
 });
+
